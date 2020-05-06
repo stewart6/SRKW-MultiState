@@ -98,11 +98,10 @@ Combos<-as.matrix(data.frame(Pod=c(rep("J",length(Stock_List)),
                              DIC=NA))
 
 # Run model loop
-# NOTE: at 400,000 iterations, each model takes several hours to run (strap in)
+# NOTE: at 400,000 iterations, each model takes several hours to run; the full loop takes 2-3 days (strap in)
 
 for(i in 1:(dim(Combos)[1])){
-  
-  
+
   # Set up data files for each run:
   
   BC <- get(paste0(Combos[i,1],"BC"))
