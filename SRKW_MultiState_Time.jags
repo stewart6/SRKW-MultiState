@@ -1,0 +1,161 @@
+
+    model {
+    
+    #--------------------------------------
+    # Transition Parameters:
+    # G (Growth)
+    # S (Stable)
+    # D (Decline)
+    
+    #--------------------------------------
+    # Observed States:
+    # 6 Dead
+    # 1 BC1
+    # 2 BC2
+    # 3 BC3
+    # 4 BC4
+    # 5 BC5
+    #--------------------------------------
+    
+    
+    # Time-only model for transition probabilities; calculated independently for each time step
+      
+    for(c in 1:Params){
+        DPrior[c] = 1/Params # Uninformative prior for Dirichlet distribution
+    }#c
+
+    for(t in 1:(n.occasions-1)){
+        prob[t,1:Params] ~ ddirich(DPrior[1:Params])
+    }#t
+    
+    
+    for(t in 1:(n.occasions-1)){
+        G[t]  = prob[t,1]
+        D[t]  = prob[t,2]
+        S[t] = prob[t,3]
+    }#t
+    
+
+    #Calculate M by body condition
+
+    # Estimate a mean mortality rate:
+    Mean.M ~ dunif(0,1)
+   
+    # Estimate baseline Mortality probability based on Age & Sex
+    # Age/Sex classes:
+    # 1 Not yet born
+    # 2 Calf
+    # 3 Juvenile
+    # 4 Young Female
+    # 5 Old Female
+    # 6 Young Male
+    # 7 Old Male
+
+    for(ac in 1:7){
+        Base.M[ac] ~ dnorm(logit(Mean.M),tau.M) # in logit space
+    }
+
+    sigma.M ~ dunif(0,5)
+    tau.M = pow(sigma.M,-2)
+    
+
+    #M[bc] is an offset for body condition from the predicted mean M based on age and sex (in logit space):
+    for(bc in 1:n.bc){
+        M[bc] ~ dnorm(0,tau.MBC)
+
+          #All whales intiialize in 2007 (unsampled year) at condition class 3, so M should not be estimated for time step 1:
+            for (t in 2:(n.occasions-1)){
+                M.bc[bc,t] <- M[bc]
+            }#t
+            #Set first year body condition mortality effect to 0 (2007-2008 intiialization):
+            M.bc[bc,1] <- 0
+    }#bc
+
+    sigma.MBC ~ dunif(0,5)  # standard deviation for body condition mortality effects
+    tau.MBC = pow(sigma.MBC,-2)
+    
+    ## Define state-transition and observation matrices ##
+    
+    # State 6: dead; 1-5: BC 1-5  
+    # Define probabilities of state S(t+1) given S(t)
+    
+    for(i in 1:n.ind){
+    for (t in 1:(n.occasions-1)){
+    
+    # probability of moving [from, t, to]
+    
+    #transition matrices for starting BC of 1
+    #When these are fed into dcat() the rows are normalized, which adjusts all global parameters by the age/sex/condition-specific M
+    #This is the same as conditioning transition probabilities on survival
+    ps[1,i,t,1] <- S[t]
+    ps[1,i,t,2] <- G[t]
+    ps[1,i,t,3] <- G[t]^2
+    ps[1,i,t,4] <- G[t]^3
+    ps[1,i,t,5] <- G[t]^4
+    ps[1,i,t,6] <- ilogit(M.bc[1,t] + Base.M[AgeSex[i,t]]) * step(AgeSex[i,t]-2) #Step function sets M to 0 if the whale isn't born yet, so not-yet-born whales don't influence M estimates
+    
+    #transition matrices for BC2
+    ps[2,i,t,1] <- D[t]
+    ps[2,i,t,2] <- S[t] 
+    ps[2,i,t,3] <- G[t] 
+    ps[2,i,t,4] <- G[t]^2
+    ps[2,i,t,5] <- G[t]^3
+    ps[2,i,t,6] <- ilogit(M.bc[2,t] + Base.M[AgeSex[i,t]]) * step(AgeSex[i,t]-2)
+
+    #BC3
+    ps[3,i,t,1] <- D[t]^2
+    ps[3,i,t,2] <- D[t] 
+    ps[3,i,t,3] <- S[t] 
+    ps[3,i,t,4] <- G[t] 
+    ps[3,i,t,5] <- G[t]^2
+    ps[3,i,t,6] <- ilogit(M.bc[3,t] + Base.M[AgeSex[i,t]]) * step(AgeSex[i,t]-2)
+    
+    #BC4
+    ps[4,i,t,1] <- D[t]^3
+    ps[4,i,t,2] <- D[t]^2
+    ps[4,i,t,3] <- D[t] 
+    ps[4,i,t,4] <- S[t] 
+    ps[4,i,t,5] <- G[t]
+    ps[4,i,t,6] <- ilogit(M.bc[4,t] + Base.M[AgeSex[i,t]]) * step(AgeSex[i,t]-2)
+    
+    #BC5
+    ps[5,i,t,1] <- D[t]^4
+    ps[5,i,t,2] <- D[t]^3
+    ps[5,i,t,3] <- D[t]^2
+    ps[5,i,t,4] <- D[t] 
+    ps[5,i,t,5] <- S[t]
+    ps[5,i,t,6] <- ilogit(M.bc[5,t] + Base.M[AgeSex[i,t]]) * step(AgeSex[i,t]-2)
+    
+    #Dead animals stay dead
+    ps[6,i,t,1] <- 0
+    ps[6,i,t,2] <- 0
+    ps[6,i,t,3] <- 0
+    ps[6,i,t,4] <- 0
+    ps[6,i,t,5] <- 0
+    ps[6,i,t,6] <- 1
+    
+    } #t1
+    }#i
+    
+    ## Likelihood ##
+    for (i in 1:n.ind){
+      for (t in 2:n.occasions){
+      # State process: draw S(t) given S(t-1)
+        BC[i,t] ~ dcat(ps[BC[i,t-1], i, t-1,])
+      } #t1
+    }#i
+    
+    ## Imputation of covariate ##
+    # This is necessary as the first covariate value must be NA so it does not 
+    # influence the cumulative logit slopes & intercepts (first BCs are dummy values for initialization)
+    
+    mean.cov ~ dunif(0,100)
+    sigma.cov ~ dunif(0,100)
+    tau.cov <- pow(sigma.cov,-2)
+    
+    for (t in 1:(n.occasions-1)){
+    cov[t] ~ dnorm(mean.cov,tau.cov)
+    }#t
+    
+    }#model
+    
