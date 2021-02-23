@@ -1,6 +1,6 @@
 # Supplemental code for Stewart et al., 2020
 # Survival of the Fattest: Linking body condition to prey availability and survivorship of killer whales
-# This code will run body condition multi-state models for Southern Resident killer whale pods.
+# This code will run body condition multi-state models for Southern Resident killer whale L Pod.
 
 # Required packages:
 library(R2jags)
@@ -14,7 +14,7 @@ library(R2jags)
 # 1) LOAD DATA FILES
 #######################
 
-# Load the Body Condition Matrices for J, K and L pods 
+# Load the Body Condition Matrices for L pod
 # (make sure this .RData file is in your working directory)
 load("SRKW Body Condition Classes.RData")
 
@@ -23,7 +23,6 @@ load("SRKW Body Condition Classes.RData")
 # salmon data for 2008 so the covariate fits are not influenced by initialization.
 # Body condition classes 1-5, mortality is logged at 6, unmeasured whales logged as NA.
 # No measurements taken 2009-2012, 2014, but known deaths are included for all years 2008-2019.
-
 
 
 # Load the Chinook Salmon abundance indices
@@ -43,7 +42,7 @@ load("Chinook Salmon Indices.RData")
 
 
 
-# Load the Age Matrices and Sex matrices for each pod:
+# Load the Age Matrices and Sex matrices for L pod:
 load("SRKW AgeClasses.RData")
 
 # Notes:
@@ -63,8 +62,8 @@ load("SRKW AgeClasses.RData")
 #############################
 
 # Choose which pod to run
-BC <- as.matrix(KBC)
-AgeSex <- as.matrix(KAgeClass)
+BC <- as.matrix(LBC)
+AgeSex <- as.matrix(LAgeClass)
 
 
 jags.data <- list(n.occasions = dim(BC)[2], #number of time steps
@@ -88,9 +87,9 @@ ni = 100000 #number of iterations
 nb = 50000 #burn-in length
 nt = 50 #thinning
 
-SRKW_KPod_Null <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Null.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+SRKW_LPod_Null <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Null.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
 
-attach.jags(SRKW_KPod_Null)
+attach.jags(SRKW_LPod_Null)
 
 
 #############################
@@ -98,8 +97,8 @@ attach.jags(SRKW_KPod_Null)
 #############################
 
 # Choose which pod to run
-BC <- as.matrix(AllBC)
-AgeSex <- as.matrix(AllAgeClass)
+BC <- as.matrix(LBC)
+AgeSex <- as.matrix(LAgeClass)
 
 
 jags.data <- list(n.occasions = dim(BC)[2], #number of time steps
@@ -123,9 +122,9 @@ ni = 100000 #number of iterations
 nb = 50000 #burn-in length
 nt = 50 #thinning
 
-SRKW_All_Time <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Time.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+SRKW_LPod_Time <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Time.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
 
-attach.jags(SRKW_All_Time)
+attach.jags(SRKW_LPod_Time)
 
 
 
@@ -133,9 +132,9 @@ attach.jags(SRKW_All_Time)
 # 4) RUN THE COVARIATE MODEL
 #############################
 
-BC <- as.matrix(JBC)
-Cov <- Fraser
-AgeSex <- JAgeClass
+BC <- as.matrix(LBC)
+Cov <- Puget
+AgeSex <- LAgeClass
 
 
 
@@ -162,8 +161,8 @@ ni = 100000 #number of iterations
 nb = 50000 #burn-in length
 nt = 50 #thinning
 
-SRKW_JPod_Fraser <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Cov.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
+SRKW_LPod_Puget <- jags(jags.data, inits=inits, parameters, "SRKW_MultiState_Cov.jags", n.chains = nc, n.thin = nt, n.iter = ni, n.burnin = nb, working.directory = getwd())
 
-attach.jags(SRKW_JPod_Fraser)
+attach.jags(SRKW_LPod_Puget)
 
 
